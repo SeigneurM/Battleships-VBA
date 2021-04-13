@@ -1,0 +1,452 @@
+Attribute VB_Name = "Bot_Optimus_Prime_V2"
+
+'///fonction permettant l'initialisation des 5 bateaux
+Public Function GetInitialization() As ShipsSet
+Dim response As ShipsSet
+
+    Set response = New ShipsSet
+    
+    response.CarrierPosition = "I2"
+    response.CarrierOrientation = "D"
+    
+    response.BattleShipPosition = "F9"
+    response.BattleShipOrientation = "R"
+    
+    response.CruiserPosition = "A10"
+    response.CruiserOrientation = "R"
+    
+    response.SubmarinePosition = "B2"
+    response.SubmarineOrientation = "R"
+    
+    response.DestroyerPosition = "C4"
+    response.DestroyerOrientation = "D"
+    
+    '---------------------------------
+    '      write your code here
+    '
+    'ex:
+    'response.CarrierPosition = "B2"
+    'response.CarrierOrientation = "D"
+    '
+    ' Ships' position must be expressed in A1 format (A-J // 1-10)
+    ' Ships' orientation must be expressed as
+    ' "D" for down
+    ' "R" for right
+    '
+    '---------------------------------
+    
+    Set GetInitialization = response
+    
+End Function
+
+' Fonction prenant en arguments les coordonnées dans l'excel et renvoyant un string contenant les coordonées dans la grille de la bataille navale
+Function Coord(ByVal x As Integer, ByVal y As Integer)
+    If BoardManagement.GetTurnColor = Green Then
+        Coord = Chr(64 + y - 3) & CStr(x - 3)
+    Else
+        Coord = Chr(64 + y - 22) & CStr(x - 3)
+    End If
+End Function
+
+' Fonction prenant en arguments les coordonnées dans l'excel et renvoyant le code couleur de la case
+Function CoulCase(ByVal Li As Integer, ByVal Ci As Integer)
+    CoulCase = Cells(Li, Ci).Interior.Color
+End Function
+
+' Fonction prenant en arguments les coordonnées dans l'excel, ainsi qu'une liste censée contenir les coordonnées dans la grille en string des cases blanches et la taille de cette liste
+' Qui a la même fonction que Coord si la case désignée est blanche
+' Et qui renvoie des coordonnées au hasard si la case n'est pas blanche
+Function Tir(ByVal L As Integer, ByVal c As Integer, ByVal casblnc, ByVal nb)
+    If CoulCase(L, c) = RGB(255, 255, 255) Then
+        Tir = Coord(L, c)
+    Else
+        Tir = RandomCoord(casblnc, nb)
+    End If
+End Function
+
+' Fonction prenant en arguments une liste censée contenir les coordonnées dans la grille en string des cases blanches et la taille de cette liste
+' Qui renvoie au hasard le n-ième terme de la liste, par exemple "J4" si la case J4 est blanche
+' L'interêt de faire une liste contenant les cases blanches est que on évite de retirer sur la même case même en tirant au hasard
+' Il existe d'autres solutions plus simple mais il évite de refaire une boucle tant que à chaque appel de la fonction
+Function RandomCoord(ByVal listecasesblanches, ByVal taille)
+
+    RandomCoord = listecasesblanches(Int(taille * Rnd))
+    
+End Function
+
+
+'///fonction retournant jusqu'à 3 tir
+Public Function GetShotsTarget() As ShotsSet
+
+Dim response As ShotsSet
+    
+    Set response = New ShotsSet
+    Dim ligne, colonne, n, c As Integer
+    Dim blanc, rouge, noir, bord, gris As Long
+    ' On associe à des variables les codes de chaque couleur pour plus de clarté
+    blanc = RGB(255, 255, 255)
+    rouge = RGB(255, 0, 0)
+    noir = RGB(0, 0, 0)
+    gris = Cells(14, 3).Interior.Color
+    ' On fais tourner une boucle qui va compter le nombre de cases blanches de la grille
+    n = 0
+    
+    If BoardManagement.GetTurnColor = EColor.Green Then
+        bord = Cells(3, 3).Interior.Color
+        Cmin = 4
+        Cmax = 13
+        milieu = 9
+    Else
+        bord = Cells(3, 22).Interior.Color
+        Cmin = 23
+        Cmax = 32
+        milieu = 28
+    End If
+    
+    For ligne = 4 To 13
+        For colonne = Cmin To Cmax
+            If CoulCase(ligne, colonne) = blanc Then
+                n = n + 1
+                End If
+            Next colonne
+        Next ligne
+        
+    ' On défnit une liste qui sera destinée à contenir des strings des coordonnées de chaque case blanche de la grille
+    ReDim cb(n)
+    c = 0
+    For ligne = 4 To 13
+        For colonne = Cmin To Cmax
+            If CoulCase(ligne, colonne) = blanc Then
+                cb(c) = Coord(ligne, colonne)
+                c = c + 1
+                End If
+            Next colonne
+        Next ligne
+        
+        
+    ' On parcoure chaque case de la grille de jeu
+    For ligne = 4 To 13
+        For colonne = Cmin To Cmax
+        
+            ' On s'arrête à la première case rouge rencontrée
+            If CoulCase(ligne, colonne) = rouge Then
+            
+                ' Si la case se situe sur la première ligne de la grille ou si on a déja tiré au dessus de la case sans succès
+                If CoulCase(ligne - 1, colonne) = bord Or CoulCase(ligne - 1, colonne) = noir And CoulCase(ligne + 1, colonne) = blanc Then
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche
+                    If CoulCase(ligne + 1, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne + 2, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne + 3, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire sur les 3 cases en dessous de la case actuelle
+                        response.FirstShot = Tir(ligne + 1, colonne, cb, n)
+                        response.SecondShot = Tir(ligne + 2, colonne, cb, n)
+                        response.ThirdShot = Tir(ligne + 3, colonne, cb, n)
+                        
+                        ' On saute direct à la ligne nommée "Fin" pour éviter que les FirstShot, SecondShot et ThirdShot ne soit modifiés par la suite du programme
+                        GoTo Fin
+                        End If
+                    
+                    End If
+                
+                ' Même idée mais pour la première colonne ou si la case à gauche a déja été tiré sans succès
+                If CoulCase(ligne, colonne - 1) = bord Or CoulCase(ligne, colonne - 1) = noir And CoulCase(ligne, colonne + 1) = blanc Then
+                    
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche
+                    If CoulCase(ligne, colonne + 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 2) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 3) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire sur les 3 cases à droite de la case actuelle
+                        response.FirstShot = Tir(ligne, colonne + 1, cb, n)
+                        response.SecondShot = Tir(ligne, colonne + 2, cb, n)
+                        response.ThirdShot = Tir(ligne, colonne + 3, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                
+                ' Même idée mais pour la dernière ligne ou si la case en dessous a déja été tiré sans succès
+                If CoulCase(ligne + 1, colonne) = bord Or CoulCase(ligne + 1, colonne) = noir And CoulCase(ligne - 1, colonne) = blanc Then
+                
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche
+                    If CoulCase(ligne - 1, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne - 2, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne - 3, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire sur les 3 cases au dessus de la case actuelle
+                        response.FirstShot = Tir(ligne - 1, colonne, cb, n)
+                        response.SecondShot = Tir(ligne - 2, colonne, cb, n)
+                        response.ThirdShot = Tir(ligne - 3, colonne, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                    
+                ' Même idée mais pour la dernière colonne ou si la case à droite a déja été tiré sans succès
+                If CoulCase(ligne, colonne + 1) = bord Or CoulCase(ligne, colonne + 1) = noir And CoulCase(ligne, colonne - 1) = blanc Then
+                
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche
+                    If CoulCase(ligne, colonne + 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 2) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 3) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire sur les 3 cases à gauche de la case actuelle
+                        response.FirstShot = Tir(ligne, colonne - 1, cb, n)
+                        response.SecondShot = Tir(ligne, colonne - 2, cb, n)
+                        response.ThirdShot = Tir(ligne, colonne - 3, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                    
+                ' Si la case est entourée de cases blanches
+                If CoulCase(ligne, colonne + 1) = blanc And CoulCase(ligne, colonne - 1) = blanc And CoulCase(ligne + 1, colonne) = blanc And CoulCase(ligne - 1, colonne) = blanc Then
+                
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche
+                    If CoulCase(ligne, colonne + 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne - 1, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire sur les 4 cases qui entoure a case actuelle sauf celle de gauche, la case sur laquelle on ne tire pas est choisi arbitrairement
+                        response.FirstShot = Tir(ligne + 1, colonne, cb, n)
+                        response.SecondShot = Tir(ligne, colonne + 1, cb, n)
+                        response.ThirdShot = Tir(ligne - 1, colonne, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                    
+                ' Si la case en dessous est rouge
+                If CoulCase(ligne + 1, colonne) = rouge Then
+                
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche
+                    If CoulCase(ligne - 1, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne + 2, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne + 3, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire une fois au dessus et sur les deuxième et troisième cases en dessous
+                        response.FirstShot = Tir(ligne - 1, colonne, cb, n)
+                        response.SecondShot = Tir(ligne + 2, colonne, cb, n)
+                        response.ThirdShot = Tir(ligne + 3, colonne, cb, n)
+                        GoTo Fin
+                        End If
+                        
+                    End If
+                    
+                ' Si la case à droite est rouge
+                If CoulCase(ligne, colonne + 1) = rouge Or CoulCase(ligne - 1, colonne) = noir And CoulCase(ligne + 1, colonne) = noir Then
+                
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche'
+                    If CoulCase(ligne, colonne - 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 2) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 3) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                        
+                        ' On tire une fois à gauche et sur les deuxième et troisième cases à droite'
+                        response.FirstShot = Tir(ligne, colonne - 1, cb, n)
+                        response.SecondShot = Tir(ligne, colonne + 2, cb, n)
+                        response.ThirdShot = Tir(ligne, colonne + 3, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                    
+                'Si la case est entre deux cases noires horizontalement'
+                If CoulCase(ligne, colonne - 1) = noir And CoulCase(ligne, colonne + 1) = noir Then
+                    
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche'
+                    If CoulCase(ligne, colonne - 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 1) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne, colonne + 2) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                    
+                        ' On tire une fois à gauche et sur les première et deuxième cases à droite'
+                        response.FirstShot = Tir(ligne, colonne - 1, cb, n)
+                        response.SecondShot = Tir(ligne, colonne + 1, cb, n)
+                        response.ThirdShot = Tir(ligne, colonne + 2, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                    
+                'Si la case est entre deux cases noires verticalement'
+                If CoulCase(ligne - 1, colonne) = noir And CoulCase(ligne + 1, colonne) = noir Then
+                    
+                    i = 0
+                    ' On vérifie qu'au moins une des cases sur lesquelles on va tirer est blanche'
+                    If CoulCase(ligne - 1, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne + 1, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                    If CoulCase(ligne + 2, colonne) = blanc Then
+                        i = i + 1
+                        End If
+                        
+                    If i > 1 Then
+                    
+                        ' On tire une fois en haut et sur les première et deuxième cases en dessous'
+                        response.FirstShot = Tir(ligne - 1, colonne, cb, n)
+                        response.SecondShot = Tir(ligne + 1, colonne, cb, n)
+                        response.ThirdShot = Tir(ligne + 2, colonne, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                    
+                End If
+            Next colonne
+        Next ligne
+        
+    For ligne = 4 To 13
+        For colonne = Cmin To Cmax
+        
+            ' Si la case actuelle est noire
+            If CoulCase(ligne, colonne) = noir Then
+            
+                ' Et qu'elle se situe dans la moitié haute de la grille
+                If ligne < 9 Then
+                    
+                    ' Le premier tir est deux cases en dessous de la case actuelle
+                    response.FirstShot = Tir(ligne + 2, colonne, cb, n)
+                    
+                    ' Si la case est dans le quart en haut à gauche
+                    If colonne < milieu Then
+                    
+                        ' On tire deux cases à droite et deux cases en diagonale en bas à droite
+                        response.SecondShot = Tir(ligne, colonne + 2, cb, n)
+                        response.ThirdShot = Tir(ligne + 2, colonne + 2, cb, n)
+                        GoTo Fin
+                        
+                    ' Si la case est dans le quart en haut à droite
+                    Else
+                    
+                        ' On tire deux cases à gauche et deux cases en diagonale en bas à gauche
+                        response.SecondShot = Tir(ligne, colonne - 2, cb, n)
+                        response.ThirdShot = Tir(ligne + 2, colonne - 2, cb, n)
+                        GoTo Fin
+                        End If
+                        
+                ' Si la case est dans la moitié basse
+                Else
+                
+                    ' Le premier tir est deux cases au dessus de la case actuelle
+                    response.FirstShot = Tir(ligne - 2, colonne, cb, n)
+                    
+                    ' Si la case est dans le quart en bas à gauche
+                    If colonne < milieu Then
+                    
+                        ' On tire deux cases à droite et deux cases en diagonale en haut à droite
+                        response.SecondShot = Tir(ligne, colonne + 2, cb, n)
+                        response.ThirdShot = Tir(ligne - 2, colonne + 2, cb, n)
+                        GoTo Fin
+                        
+                    ' Si la case est dans le quart en bas à droite
+                    Else
+                    
+                        ' On tire deux cases à gauche et deux cases en diagonale en haut à gauche
+                        response.SecondShot = Tir(ligne, colonne - 2, cb, n)
+                        response.ThirdShot = Tir(ligne - 2, colonne - 2, cb, n)
+                        GoTo Fin
+                        End If
+                    End If
+                End If
+                
+            Next colonne
+        Next ligne
+        
+        
+    ' Les 3 cases sur lesquelles on tire au départ
+    If BoardManagement.GetTurnColor = Green Then
+        response.FirstShot = Tir(6, 6, cb, n)
+        response.SecondShot = Tir(6, 11, cb, n)
+        response.ThirdShot = Tir(11, 11, cb, n)
+    Else
+        response.FirstShot = Tir(6, 25, cb, n)
+        response.SecondShot = Tir(6, 30, cb, n)
+        response.ThirdShot = Tir(11, 30, cb, n)
+    End If
+    
+Fin:
+    '---------------------------------
+    '
+    '      write your code here
+    '
+    'ex:
+    'reponse.FirstShot = "I7"
+    '
+    'Shots' target must be expressed in A1 format (A-J // 1-10)
+    '
+    '---------------------------------
+    
+    Set GetShotsTarget = response
+    
+End Function
+
+
+
